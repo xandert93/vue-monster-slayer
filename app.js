@@ -2,12 +2,33 @@ function genRandomNum(min, max) {
   return Math.floor(Math.random() * (max - min)) + min
 }
 
+const initialState = {
+  playerHealth: 100,
+  monsterHealth: 100,
+  roundCount: 0,
+  messages: [],
+  winner: '',
+}
+
 const app = Vue.createApp({
-  data: () => ({
-    playerHealth: 100,
-    monsterHealth: 100,
-    roundCount: 0,
-  }),
+  data: () => initialState,
+
+  watch: {
+    playerHealth(newHealth) {
+      if (newHealth > 0) return
+
+      this.winner = this.monsterHealth <= 0 ? 'draw' : 'monster'
+    },
+    monsterHealth(newHealth) {
+      if (newHealth > 0) return
+
+      this.winner = this.playerHealth <= 0 ? 'draw' : 'player'
+    },
+
+    // can't do `this.checkForWinner` here... => undefined...
+    playerHealth: 'checkForWinner',
+    monsterHealth: 'checkForWinner',
+  },
 
   computed: {
     isHealthy() {
@@ -21,19 +42,12 @@ const app = Vue.createApp({
 
   methods: {
     getHealthBarStyles: (health) => ({ width: health < 0 ? '0%' : health + '%' }),
-    startGame() {
-      this.playerHealth = 100
-      this.monsterHealth = 100
-      this.winner = null
-      this.roundCount = 0
-      this.logMessages = []
-    },
 
     attackMonster() {
       this.roundCount++
       const damage = genRandomNum(5, 12)
       this.monsterHealth -= damage
-      //   this.addLogMessage('player', 'attack', damage)
+      this.addMessage('player', 'attack', damage)
       this.attackPlayer()
     },
 
@@ -41,14 +55,14 @@ const app = Vue.createApp({
       this.roundCount++
       const damage = genRandomNum(10, 25)
       this.monsterHealth -= damage
-      this.addLogMessage('player', 'attack', damage)
+      this.addMessage('player', 'attack', damage)
       this.attackPlayer()
     },
 
     attackPlayer() {
       const damage = genRandomNum(8, 15)
       this.playerHealth -= damage
-      this.addLogMessage('monster', 'attack', damage)
+      this.addMessage('monster', 'attack', damage)
     },
 
     healPlayer() {
@@ -59,18 +73,37 @@ const app = Vue.createApp({
       if (this.playerHealth + healthIncVal < 100) this.playerHealth += healthIncVal
       else this.playerHealth = 100
 
-      this.addLogMessage('player', 'heal', healthIncVal)
+      this.addMessage('player', 'heal', healthIncVal)
       this.attackPlayer()
     },
+
+    checkForWinner(newHealth) {
+      if (newHealth > 0) return
+
+      const areBothDead = this.playerHealth <= 0 && this.monsterHealth <= 0
+
+      if (areBothDead) this.winner = 'draw'
+      else {
+        // determine who the health belonged to
+        this.winner = newHealth === this.playerHealth ? 'player' : 'monster'
+      }
+    },
+
     surrender() {
       this.winner = 'monster'
     },
-    addLogMessage(who, what, value) {
-      this.logMessages.unshift({
-        actionBy: who,
-        actionType: what,
-        actionValue: value,
-      })
+    addMessage(role, type, value) {
+      const newMessage = { role, type, value }
+      this.messages.unshift(newMessage)
+    },
+
+    reset() {
+      // very clunky...better way?:
+      this.playerHealth = 100
+      this.monsterHealth = 100
+      this.winner = null
+      this.roundCount = 0
+      this.messages = []
     },
   },
 })
